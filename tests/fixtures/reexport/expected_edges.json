@@ -1,0 +1,4 @@
+[
+  {"src": "pkg", "dst": "pkg.core", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "app", "dst": "pkg", "context": "module", "resolved": true, "category": "first_party"}
+]

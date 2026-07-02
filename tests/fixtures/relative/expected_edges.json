@@ -1,0 +1,7 @@
+[
+  {"src": "pkg", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "pkg.a", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "pkg.sub.mod", "dst": "pkg.sub.sibling", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "pkg.sub.mod", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "pkg.sub.mod", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party"}
+]

@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tracegraph"
+version = "0.1.0"
+description = "Static dependency analyzer for Python: import graph, circular-import detection, and test impact analysis."
+requires-python = ">=3.11"
+# No runtime dependencies on purpose: discovery/parsing/resolution use only the
+# stdlib (ast, tomllib, pathlib), and the CLI uses argparse. Keeping this empty
+# is a deliberate, defensible decision — adding a runtime dep needs justification.
+dependencies = []
+
+[project.scripts]
+# Creates the `tracegraph` command. Resolves to src/tracegraph/cli.py::main.
+tracegraph = "tracegraph.cli:main"
+
+[project.optional-dependencies]
+# Optional, NOT installed by default. networkx is allowed only for the DOT/
+# visualization export — never for the core graph algorithms (those are hand-rolled).
+viz = ["networkx>=3.0"]
+
+[dependency-groups]
+# Local dev tooling (PEP 735). `uv sync` installs this group by default.
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "coverage>=7.0",  # ground truth for test-impact validation
+]
+
+[tool.hatch.build.targets.wheel]
+# Explicit so the src/ layout is unambiguous to the build backend.
+packages = ["src/tracegraph"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+# Fixtures are synthetic inputs (one is deliberately unparseable) — not code
+# to lint.
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+# E/F: pycodestyle + pyflakes, I: import sorting, UP: pyupgrade, B: bugbear.
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests"]
+exclude = ["tests/fixtures"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Fixture projects contain test_*.py files that pytest must not collect.
+norecursedirs = [".*", "build", "dist", "venv", "fixtures"]
+
+[tool.coverage.run]
+source = ["tracegraph"]
+branch = true

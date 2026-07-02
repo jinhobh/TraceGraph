@@ -1,0 +1,5 @@
+[
+  {"src": "pkg.a", "dst": "json", "context": "module", "resolved": true, "category": "stdlib"},
+  {"src": "pkg.a", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "pkg.a", "dst": "pkg.c", "context": "module", "resolved": true, "category": "first_party"}
+]

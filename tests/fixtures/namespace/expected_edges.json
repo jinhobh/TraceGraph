@@ -1,0 +1,4 @@
+[
+  {"src": "ns.alpha", "dst": "ns.beta", "context": "module", "resolved": true, "category": "first_party"},
+  {"src": "ns.beta", "dst": "ns.deep.mod", "context": "module", "resolved": true, "category": "first_party"}
+]

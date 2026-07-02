@@ -1,0 +1,3 @@
+[
+  {"src": "pkg.good", "dst": "pkg.bad", "context": "module", "resolved": true, "category": "first_party"}
+]
