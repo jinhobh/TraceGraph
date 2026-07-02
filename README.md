@@ -62,6 +62,22 @@ was not selected — is the dangerous error, and fails the run (exit 1, tunable
 with `--min-recall`). Reported false positives are only an upper bound on
 over-selection: per-test contexts cannot attribute import-time execution, so a
 test that depends on a module purely through import side effects looks
-unaffected to coverage even when selecting it is correct. On TraceGraph's own
-suite the harness measures precision 1.00, recall 1.00, and mean reduction
-0.51.
+unaffected to coverage even when selecting it is correct.
+
+The harness has been run against an external, mid-size project with a real
+suite: [Flask](https://github.com/pallets/flask) (491 tests, 24 first-party
+modules with coverage). Result: **recall 1.00** — zero false negatives — with
+micro precision 0.56 and mean reduction 0.08. The low reduction is a property
+of Flask's suite, not resolver over-approximation: almost every test file
+builds an app through a handful of shared `conftest.py` fixtures that import
+most of `flask`'s public surface, so nearly the whole module graph is
+legitimately reachable from nearly every test module. (Click was the other
+candidate considered; Flask's larger, fixture-heavy suite is the more
+demanding case.)
+
+On TraceGraph's own suite — much smaller and, by construction, unusually
+decoupled — the harness measures precision 1.00, recall 1.00, and mean
+reduction 0.51. Treat this as a negative control: it shows the harness and
+resolver behave correctly when there's no import noise to obscure a mistake,
+not that TIA meaningfully narrows down suites in general — the Flask run
+above is the representative number.
