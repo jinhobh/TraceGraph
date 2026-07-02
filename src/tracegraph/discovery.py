@@ -56,15 +56,37 @@ class Project:
 
 
 def discover(root: Path | str) -> Project:
-    """Build the module index for the project rooted at ``root``."""
+    """Build the module index for the project rooted at ``root``.
+
+    If ``root`` is itself a package (contains ``__init__.py``), module names
+    are anchored at its parent — climbing past any enclosing packages — so
+    the package keeps its own name and sibling relative imports resolve.
+    """
     root_path = Path(root).resolve()
     project = Project(root=root_path)
+    if (root_path / "__init__.py").is_file():
+        _walk_package(root_path, _anchored_name(root_path), project)
+        return project
     src = root_path / "src"
     source_roots = [src, root_path] if src.is_dir() else [root_path]
     for source_root in source_roots:
         skip = {other for other in source_roots if other != source_root}
         _walk_root(source_root, project, skip)
     return project
+
+
+def _anchored_name(package: Path) -> str:
+    """Dotted name for a package directory targeted directly.
+
+    Climbs while the parent is also a package so a nested target such as
+    ``requests/packages`` still yields ``requests.packages``.
+    """
+    parts = [package.name]
+    parent = package.parent
+    while (parent / "__init__.py").is_file():
+        parts.append(parent.name)
+        parent = parent.parent
+    return ".".join(reversed(parts))
 
 
 def module_for_path(project: Project, path: Path | str) -> str | None:

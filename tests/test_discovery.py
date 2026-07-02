@@ -33,6 +33,28 @@ def test_regular_packages_are_parsed() -> None:
     assert not project.modules["pkg.a"].is_package
 
 
+def test_package_target_anchors_names_to_parent() -> None:
+    # Pointing directly at a package directory must keep the package's own
+    # name as the prefix and register its __init__.py, or sibling relative
+    # imports cannot resolve.
+    project = discover(FIXTURES / "relative" / "project" / "pkg")
+    assert {
+        "pkg",
+        "pkg.a",
+        "pkg.b",
+        "pkg.sub",
+        "pkg.sub.mod",
+        "pkg.sub.sibling",
+    } == set(project.index)
+    assert project.modules["pkg"].is_package
+    assert project.modules["pkg"].tree is not None
+
+
+def test_nested_package_target_keeps_full_dotted_name() -> None:
+    project = discover(FIXTURES / "relative" / "project" / "pkg" / "sub")
+    assert {"pkg.sub", "pkg.sub.mod", "pkg.sub.sibling"} == set(project.index)
+
+
 def test_module_for_path_round_trip() -> None:
     root = FIXTURES / "src_layout" / "project"
     project = discover(root)
