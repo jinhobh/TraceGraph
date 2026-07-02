@@ -123,17 +123,38 @@ def strongly_connected_components(
 
 
 def load_time_cycles(graph: ModuleGraph) -> list[list[str]]:
-    """Circular imports that would raise ImportError at load time.
+    """Circular imports that can raise ImportError at load time.
 
     Only ``context == "module"`` edges participate: a cycle realized through
     a function-local or TYPE_CHECKING import does not fail at import time and
     must not be reported here. (Test impact analysis, by contrast, uses all
     edges.)
+
+    An SCC of module edges is not enough on its own: Python tolerates cycles
+    realized purely through ``binding == "module"`` edges, because a plain
+    ``import x`` is satisfied by the partially initialized module object
+    already in ``sys.modules``. A cycle only fails when some edge inside it
+    needs names out of its target's namespace at load time, so an SCC is
+    reported iff it contains an intra-SCC ``binding == "symbol"`` edge.
+    (Every intra-SCC edge lies on a cycle, so one such edge suffices.)
     """
     load_time: tuple[Context, ...] = ("module",)
     adjacency = graph.successors(contexts=load_time)
-    return [
-        component
-        for component in strongly_connected_components(adjacency)
-        if len(component) > 1 or component[0] in adjacency[component[0]]
-    ]
+    symbol_pairs = {
+        (edge.src, edge.dst)
+        for edge in graph.edges
+        if edge.context == "module" and edge.binding == "symbol"
+    }
+    cycles = []
+    for component in strongly_connected_components(adjacency):
+        members = set(component)
+        if len(component) == 1 and component[0] not in adjacency[component[0]]:
+            continue
+        if any(
+            (src, dst) in symbol_pairs
+            for src in component
+            for dst in adjacency[src]
+            if dst in members
+        ):
+            cycles.append(component)
+    return cycles

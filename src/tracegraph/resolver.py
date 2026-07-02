@@ -9,17 +9,27 @@ time, ``function`` for imports deferred into a function body, and
 ``type_checking`` for imports guarded by ``typing.TYPE_CHECKING``. The tag is
 load-bearing: cycle detection uses only ``module`` edges, while test impact
 analysis uses all of them.
+
+Every edge also carries a ``binding`` tag — ``module`` when the import only
+binds a module object (plain ``import x``, ``from pkg import submodule``,
+dynamic imports), ``symbol`` when load-time code needs names out of the
+target's namespace (``from x import name`` where ``name`` is not a submodule,
+``from x import *``, or a module-object import whose bound name is attribute-
+accessed at module scope). Python tolerates circular imports realized purely
+through ``module`` bindings — a partially initialized module object satisfies
+them — so only ``symbol`` bindings can turn a cycle into a load-time failure.
 """
 
 from __future__ import annotations
 
 import ast
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 Context = Literal["module", "function", "type_checking"]
 Category = Literal["first_party", "stdlib", "third_party", "unknown"]
+Binding = Literal["module", "symbol"]
 
 #: Edge target used for dynamic imports whose name cannot be determined
 #: statically. These are surfaced in reports as known blind spots.
@@ -34,7 +44,10 @@ class Edge:
     """A dependency of module ``src`` on ``dst`` found in ``src``'s source.
 
     Edges connect modules, not symbols: ``from pkg import name`` where
-    ``name`` is not a submodule produces an edge to ``pkg``.
+    ``name`` is not a submodule produces an edge to ``pkg``. ``binding``
+    records whether the edge is satisfied by a bare module object
+    (``module``) or needs names from a fully initialized target
+    (``symbol``); see the module docstring.
     """
 
     src: str
@@ -42,6 +55,7 @@ class Edge:
     context: Context
     resolved: bool
     category: Category
+    binding: Binding
 
 
 def resolve_module(
@@ -58,20 +72,7 @@ def resolve_module(
     """
     visitor = _ImportVisitor(name, is_package, index)
     visitor.visit(tree)
-    return visitor.edges
-
-
-def _is_type_checking(test: ast.expr) -> bool:
-    """True for ``TYPE_CHECKING`` or ``typing.TYPE_CHECKING`` guards."""
-    if isinstance(test, ast.Name):
-        return test.id == "TYPE_CHECKING"
-    if isinstance(test, ast.Attribute):
-        return (
-            test.attr == "TYPE_CHECKING"
-            and isinstance(test.value, ast.Name)
-            and test.value.id == "typing"
-        )
-    return False
+    return visitor.finalize()
 
 
 def _is_dynamic_import(func: ast.expr) -> bool:
@@ -99,39 +100,98 @@ class _ImportVisitor(ast.NodeVisitor):
         self._context: list[Context] = ["module"]
         self._seen: set[Edge] = set()
         self.edges: list[Edge] = []
+        # Local names bound to module objects by module-context imports, and
+        # names attribute-accessed at module scope. Together these decide
+        # which module-binding edges get upgraded to symbol in finalize().
+        self._module_bound: dict[str, set[str]] = {}
+        self._attr_used: set[str] = set()
+        # Local names the guard check accepts, kept in sync with import
+        # aliases so ``import typing as t; if t.TYPE_CHECKING:`` is guarded.
+        self._typing_aliases = {"typing"}
+        self._tc_aliases = {"TYPE_CHECKING"}
+
+    def _is_type_checking(self, test: ast.expr) -> bool:
+        """True for ``TYPE_CHECKING`` guards, under whatever local alias
+        ``typing`` or ``TYPE_CHECKING`` was imported as."""
+        if isinstance(test, ast.Name):
+            return test.id in self._tc_aliases
+        if isinstance(test, ast.Attribute):
+            return (
+                test.attr == "TYPE_CHECKING"
+                and isinstance(test.value, ast.Name)
+                and test.value.id in self._typing_aliases
+            )
+        return False
+
+    def finalize(self) -> list[Edge]:
+        """Return the edges, upgrading module bindings used at module scope.
+
+        A plain ``import x`` binds only the module object, but if module-scope
+        code then reads ``x.attr``, load time still needs ``x``'s namespace —
+        so the edge is as cycle-fatal as ``from x import attr``. The upgrade
+        is per bound name, not per attribute: any module-scope attribute
+        access through a name upgrades every edge that name's imports emitted.
+        """
+        upgraded = {
+            dst
+            for name, dsts in self._module_bound.items()
+            if name in self._attr_used
+            for dst in dsts
+        }
+        edges: list[Edge] = []
+        seen: set[Edge] = set()
+        for edge in self.edges:
+            if (
+                edge.context == "module"
+                and edge.binding == "module"
+                and edge.dst in upgraded
+            ):
+                edge = replace(edge, binding="symbol")
+            if edge not in seen:
+                seen.add(edge)
+                edges.append(edge)
+        return edges
 
     # -- edge emission -----------------------------------------------------
 
-    def _add(self, dst: str, resolved: bool, category: Category) -> None:
+    def _add(
+        self, dst: str, resolved: bool, category: Category, binding: Binding
+    ) -> str | None:
+        """Emit an edge to ``dst``; returns ``dst`` if an edge applies."""
         if dst == self._module or dst in _IGNORED_MODULES:
-            return
-        edge = Edge(self._module, dst, self._context[-1], resolved, category)
+            return None
+        edge = Edge(self._module, dst, self._context[-1], resolved, category, binding)
         if edge not in self._seen:
             self._seen.add(edge)
             self.edges.append(edge)
+        return dst
 
-    def _add_external(self, name: str) -> None:
+    def _add_external(self, name: str, binding: Binding) -> str | None:
         # External modules are leaf nodes: record the top-level name only and
         # never traverse into them.
         top = name.split(".", 1)[0]
         category: Category = (
             "stdlib" if top in sys.stdlib_module_names else "third_party"
         )
-        self._add(top, True, category)
+        return self._add(top, True, category, binding)
 
-    def _add_absolute(self, name: str) -> None:
-        """Emit the edge for an absolute dotted import of ``name``."""
+    def _add_absolute(self, name: str) -> str | None:
+        """Emit the module-binding edge for an absolute dotted import."""
         if name.split(".", 1)[0] not in self._roots:
-            self._add_external(name)
-        elif name in self._index:
-            self._add(name, True, "first_party")
-        else:
-            # First-party prefix but no such module: keep the full target and
-            # flag it unresolved so the report can surface the broken import.
-            self._add(name, False, "first_party")
+            return self._add_external(name, "module")
+        if name in self._index:
+            return self._add(name, True, "first_party", "module")
+        # First-party prefix but no such module: keep the full target and
+        # flag it unresolved so the report can surface the broken import.
+        return self._add(name, False, "first_party", "module")
 
-    def _add_first_party_module(self, name: str) -> None:
-        self._add(name, name in self._index, "first_party")
+    def _add_first_party_module(self, name: str, binding: Binding) -> str | None:
+        return self._add(name, name in self._index, "first_party", binding)
+
+    def _record_bound(self, local_name: str, dst: str | None) -> None:
+        """Remember that module-scope ``local_name`` holds module ``dst``."""
+        if dst is not None and self._context[-1] == "module":
+            self._module_bound.setdefault(local_name, set()).add(dst)
 
     # -- context tracking ----------------------------------------------------
 
@@ -159,7 +219,7 @@ class _ImportVisitor(ast.NodeVisitor):
 
     def visit_If(self, node: ast.If) -> None:
         self.visit(node.test)
-        if _is_type_checking(node.test):
+        if self._is_type_checking(node.test):
             # A TYPE_CHECKING guard never executes at runtime, even inside a
             # function body.
             self._context.append("type_checking")
@@ -176,30 +236,45 @@ class _ImportVisitor(ast.NodeVisitor):
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
-            self._add_absolute(alias.name)
+            if alias.name == "typing":
+                self._typing_aliases.add(alias.asname or "typing")
+            dst = self._add_absolute(alias.name)
+            # ``import a.b`` binds ``a``; ``import a.b as m`` binds ``m``.
+            self._record_bound(alias.asname or alias.name.split(".", 1)[0], dst)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        if node.level == 0 and node.module == "typing":
+            for alias in node.names:
+                if alias.name == "TYPE_CHECKING":
+                    self._tc_aliases.add(alias.asname or "TYPE_CHECKING")
         base = self._resolve_base(node)
         if base is None:
             # Relative import that escapes the top-level package: broken at
             # runtime, surfaced as unresolved rather than dropped.
             target = "." * node.level + (node.module or "")
-            self._add(target, False, "unknown")
+            self._add(target, False, "unknown", "symbol")
             return
         if base.split(".", 1)[0] not in self._roots:
-            self._add_external(base)
+            self._add_external(base, "symbol")
             return
         for alias in node.names:
             if alias.name == "*":
-                self._add_first_party_module(base)
+                # A star import eagerly reads the target's namespace.
+                self._add_first_party_module(base, "symbol")
                 continue
             # Probe for ``base.name`` as a module FIRST; only fall back to
             # "name is defined in base" if the index has no such module.
             submodule = f"{base}.{alias.name}"
             if submodule in self._index:
-                self._add(submodule, True, "first_party")
+                dst = self._add(submodule, True, "first_party", "module")
+                self._record_bound(alias.asname or alias.name, dst)
             else:
-                self._add_first_party_module(base)
+                self._add_first_party_module(base, "symbol")
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if self._context[-1] == "module" and isinstance(node.value, ast.Name):
+            self._attr_used.add(node.value.id)
+        self.generic_visit(node)
 
     def _resolve_base(self, node: ast.ImportFrom) -> str | None:
         """Anchor a (possibly relative) ``from`` import to an absolute name.
@@ -233,5 +308,7 @@ class _ImportVisitor(ast.NodeVisitor):
             ):
                 self._add_absolute(arg.value)
             else:
-                self._add(DYNAMIC_TARGET, False, "unknown")
+                # import_module returns a module object; symbol use happens
+                # later, past what static analysis can see.
+                self._add(DYNAMIC_TARGET, False, "unknown", "module")
         self.generic_visit(node)

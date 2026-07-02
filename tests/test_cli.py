@@ -53,6 +53,17 @@ def test_cycles_clean_exit_zero(capsys: pytest.CaptureFixture[str]) -> None:
     assert "no load-time cycles" in out
 
 
+def test_cycles_plain_import_cycle_exit_zero(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # An SCC realized purely through plain ``import x`` imports fine and
+    # must not fail the cycles command.
+    code = main(["cycles", str(FIXTURES / "cycle_benign" / "project")])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "no load-time cycles" in out
+
+
 def test_cycles_detected_exit_one(capsys: pytest.CaptureFixture[str]) -> None:
     code = main(["cycles", str(FIXTURES / "cycle" / "project")])
     out = capsys.readouterr().out

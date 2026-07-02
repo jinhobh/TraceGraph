@@ -1,4 +1,4 @@
 [
-  {"src": "mypkg.core", "dst": "mypkg.util", "context": "module", "resolved": true, "category": "first_party"},
-  {"src": "tests.test_core", "dst": "mypkg.core", "context": "module", "resolved": true, "category": "first_party"}
+  {"src": "mypkg.core", "dst": "mypkg.util", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"},
+  {"src": "tests.test_core", "dst": "mypkg.core", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"}
 ]

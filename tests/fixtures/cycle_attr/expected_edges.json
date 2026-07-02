@@ -1,4 +1,4 @@
 [
   {"src": "pkg.a", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"},
-  {"src": "pkg.b", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"}
+  {"src": "pkg.b", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party", "binding": "module"}
 ]

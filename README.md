@@ -9,8 +9,15 @@ transitive-dependency queries, and select the tests affected by a file change
 Every edge carries a `context` tag — `module`, `function`, or `type_checking` —
 so the analyzer can tell load-time dependencies from lazy ones: cycle detection
 uses only load-time (`module`) edges, while test impact analysis uses all of
-them. Dynamic imports that static analysis cannot resolve are reported as
-explicit blind spots, never silently dropped.
+them. Each edge also carries a `binding` tag — `module` when the import only
+binds a module object (plain `import x`), `symbol` when load-time code needs
+names out of the target's namespace (`from x import name`, or module-scope
+`x.attr` access). Python tolerates import cycles realized purely through
+module-object bindings, so a cycle is reported as a load-time circular import
+only when it runs through at least one `symbol` edge — the pattern that can
+actually raise `ImportError` on a partially initialized module. Dynamic
+imports that static analysis cannot resolve are reported as explicit blind
+spots, never silently dropped.
 
 ## Usage
 

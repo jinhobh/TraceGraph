@@ -20,7 +20,9 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def edge(src: str, dst: str, context: Context = "module") -> Edge:
-    return Edge(src, dst, context, resolved=True, category="first_party")
+    return Edge(
+        src, dst, context, resolved=True, category="first_party", binding="symbol"
+    )
 
 
 def graph_of(edges: list[Edge]) -> ModuleGraph:

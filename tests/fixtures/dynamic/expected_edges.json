@@ -1,5 +1,5 @@
 [
-  {"src": "pkg.loader", "dst": "importlib", "context": "module", "resolved": true, "category": "stdlib"},
-  {"src": "pkg.loader", "dst": "pkg.plugin", "context": "function", "resolved": true, "category": "first_party"},
-  {"src": "pkg.loader", "dst": "<dynamic>", "context": "function", "resolved": false, "category": "unknown"}
+  {"src": "pkg.loader", "dst": "importlib", "context": "module", "resolved": true, "category": "stdlib", "binding": "module"},
+  {"src": "pkg.loader", "dst": "pkg.plugin", "context": "function", "resolved": true, "category": "first_party", "binding": "module"},
+  {"src": "pkg.loader", "dst": "<dynamic>", "context": "function", "resolved": false, "category": "unknown", "binding": "module"}
 ]

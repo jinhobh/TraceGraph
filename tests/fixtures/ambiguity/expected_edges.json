@@ -1,4 +1,4 @@
 [
-  {"src": "main", "dst": "pkg", "context": "module", "resolved": true, "category": "first_party"},
-  {"src": "main", "dst": "pkg.util", "context": "module", "resolved": true, "category": "first_party"}
+  {"src": "main", "dst": "pkg", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"},
+  {"src": "main", "dst": "pkg.util", "context": "module", "resolved": true, "category": "first_party", "binding": "module"}
 ]

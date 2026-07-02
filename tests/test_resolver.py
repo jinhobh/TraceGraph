@@ -18,14 +18,14 @@ from tracegraph.graph import build_graph
 FIXTURES = Path(__file__).parent / "fixtures"
 CASES = sorted(path.name for path in FIXTURES.iterdir() if path.is_dir())
 
-EdgeTuple = tuple[str, str, str, bool, str]
+EdgeTuple = tuple[str, str, str, bool, str, str]
 
 
 def actual_edges(case: str) -> set[EdgeTuple]:
     project = discover(FIXTURES / case / "project")
     graph = build_graph(project)
     return {
-        (edge.src, edge.dst, edge.context, edge.resolved, edge.category)
+        (edge.src, edge.dst, edge.context, edge.resolved, edge.category, edge.binding)
         for edge in graph.edges
     }
 
@@ -33,7 +33,14 @@ def actual_edges(case: str) -> set[EdgeTuple]:
 def expected_edges(case: str) -> set[EdgeTuple]:
     raw = json.loads((FIXTURES / case / "expected_edges.json").read_text())
     return {
-        (item["src"], item["dst"], item["context"], item["resolved"], item["category"])
+        (
+            item["src"],
+            item["dst"],
+            item["context"],
+            item["resolved"],
+            item["category"],
+            item["binding"],
+        )
         for item in raw
     }
 

@@ -1,3 +1,3 @@
-import pkg.a
+from pkg.a import value_a
 
-value_b = 2
+value_b = value_a + 1

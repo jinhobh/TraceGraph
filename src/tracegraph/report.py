@@ -92,4 +92,5 @@ def _edge_dict(edge: Edge) -> dict[str, Any]:
         "context": edge.context,
         "resolved": edge.resolved,
         "category": edge.category,
+        "binding": edge.binding,
     }

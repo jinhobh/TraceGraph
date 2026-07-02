@@ -1,6 +1,6 @@
 [
-  {"src": "app", "dst": "os", "context": "module", "resolved": true, "category": "stdlib"},
-  {"src": "app", "dst": "numpy", "context": "module", "resolved": true, "category": "third_party"},
-  {"src": "app", "dst": "requests", "context": "module", "resolved": true, "category": "third_party"},
-  {"src": "app", "dst": "local", "context": "module", "resolved": true, "category": "first_party"}
+  {"src": "app", "dst": "os", "context": "module", "resolved": true, "category": "stdlib", "binding": "symbol"},
+  {"src": "app", "dst": "numpy", "context": "module", "resolved": true, "category": "third_party", "binding": "module"},
+  {"src": "app", "dst": "requests", "context": "module", "resolved": true, "category": "third_party", "binding": "symbol"},
+  {"src": "app", "dst": "local", "context": "module", "resolved": true, "category": "first_party", "binding": "module"}
 ]

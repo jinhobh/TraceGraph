@@ -61,16 +61,25 @@ These are load-bearing. Preserve them.
    Don't "improve" this into symbol tracking without an explicit request — it's
    a deliberate scoping decision.
 
-2. **Every edge carries `context`: `module` | `function` | `type_checking`.**
-   This tag is not cosmetic. It's how the analyzer distinguishes load-time
-   dependencies from lazy ones. Never drop or default this field.
+2. **Every edge carries `context`: `module` | `function` | `type_checking`,
+   and `binding`: `module` | `symbol`.** Neither tag is cosmetic. `context` is
+   how the analyzer distinguishes load-time dependencies from lazy ones;
+   `binding` distinguishes imports satisfied by a bare module object (plain
+   `import x`) from ones that need names out of the target's namespace
+   (`from x import name` of a non-submodule, `from x import *`, or a plain
+   import whose bound name is attribute-accessed at module scope). Never drop
+   or default these fields.
 
-3. **Cycle detection uses only `context == "module"` edges.** A circular import
-   realized through a function-local or `TYPE_CHECKING` import does **not** raise
-   `ImportError` at load time, so it must not be reported as a load-time cycle.
-   Test impact analysis, by contrast, uses **all** edges (a lazy import is still
-   a real runtime dependency). If you touch either analysis, keep these two edge
-   sets distinct.
+3. **Cycle detection uses only `context == "module"` edges, and reports an SCC
+   only if it contains an intra-SCC `binding == "symbol"` edge.** A circular
+   import realized through a function-local or `TYPE_CHECKING` import does
+   **not** raise `ImportError` at load time, so it must not be reported as a
+   load-time cycle. Neither does a module-level cycle realized purely through
+   plain `import x` statements — Python satisfies those with the partially
+   initialized module object in `sys.modules` (this is why large packages like
+   Flask have module-edge SCCs yet import fine). Test impact analysis, by
+   contrast, uses **all** edges (a lazy import is still a real runtime
+   dependency). If you touch either analysis, keep these edge sets distinct.
 
 4. **External modules are leaf nodes.** A module is first-party iff it resolves
    into a package root (see `discovery.py`). stdlib (`sys.stdlib_module_names`)
@@ -102,7 +111,9 @@ Resolution cases the fixtures must keep covering: absolute imports, relative
 imports (multi-level), submodule-vs-name ambiguity, `__init__` re-exports,
 namespace packages (PEP 420), `src/` layout, guarded/`TYPE_CHECKING`/in-function
 imports, dynamic imports (literal and computed), aliases, first/third-party
-classification, duplicate imports, and unparseable files.
+classification, duplicate imports, unparseable files, and benign vs. failing
+module-level cycles (plain-import cycles, `from`-import cycles, and
+module-scope attribute use of a plainly imported module).
 
 ## Things that are easy to get wrong
 

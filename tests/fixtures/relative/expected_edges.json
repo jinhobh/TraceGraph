@@ -1,7 +1,7 @@
 [
-  {"src": "pkg", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party"},
-  {"src": "pkg.a", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party"},
-  {"src": "pkg.sub.mod", "dst": "pkg.sub.sibling", "context": "module", "resolved": true, "category": "first_party"},
-  {"src": "pkg.sub.mod", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party"},
-  {"src": "pkg.sub.mod", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party"}
+  {"src": "pkg", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party", "binding": "module"},
+  {"src": "pkg.a", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"},
+  {"src": "pkg.sub.mod", "dst": "pkg.sub.sibling", "context": "module", "resolved": true, "category": "first_party", "binding": "module"},
+  {"src": "pkg.sub.mod", "dst": "pkg.a", "context": "module", "resolved": true, "category": "first_party", "binding": "module"},
+  {"src": "pkg.sub.mod", "dst": "pkg.b", "context": "module", "resolved": true, "category": "first_party", "binding": "symbol"}
 ]
