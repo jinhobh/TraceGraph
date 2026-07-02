@@ -73,11 +73,36 @@ builds an app through a handful of shared `conftest.py` fixtures that import
 most of `flask`'s public surface, so nearly the whole module graph is
 legitimately reachable from nearly every test module. (Click was the other
 candidate considered; Flask's larger, fixture-heavy suite is the more
-demanding case.)
+demanding case.) This isn't an artifact of scoring at test-module instead of
+test-function granularity, despite Flask's file sizes ranging from 1 test to
+132: reweighting the same predictions by actual test-function count barely
+moves the mean (0.078 either way), because for 22 of 24 source modules the
+prediction already spans all 22 of 22 test modules — there's no small-file/
+large-file selection bias for a finer denominator to expose.
+
+A second external run targets [requests](https://github.com/psf/requests)
+(635 tests across 9 test modules, 19 first-party modules with coverage),
+picked as the contrasting case: no shared app-building fixture pulls in the
+whole package the way Flask's `conftest.py` does, so most test modules cover
+only the source modules their name suggests (`test_adapters.py`,
+`test_cookies.py`, `test_structures.py`, ...). Result: **recall 1.00** — zero
+false negatives — with micro precision 0.51 and mean reduction 0.34, over 4x
+Flask's 0.08 — consistent with a suite that doesn't route every test through
+a handful of shared fixtures. Several leaf modules (`requests.certs`,
+`requests.compat`, `requests.status_codes`, `requests.__version__`,
+`requests.packages`) show zero measured truth despite being imported
+everywhere: coverage only attributes a line to a test's context the first
+time it executes under the default (import-time) context, so a module
+touched solely as a side effect of importing `requests` records no
+test-specific coverage. Every prediction for those modules therefore scores
+as a false positive, which is the false-positive-as-upper-bound caveat above,
+not a resolver defect — `tracegraph cycles` and `tracegraph analyze` on this
+same checkout show the edges into those modules resolving correctly.
 
 On TraceGraph's own suite — much smaller and, by construction, unusually
 decoupled — the harness measures precision 1.00, recall 1.00, and mean
 reduction 0.51. Treat this as a negative control: it shows the harness and
 resolver behave correctly when there's no import noise to obscure a mistake,
-not that TIA meaningfully narrows down suites in general — the Flask run
-above is the representative number.
+not that TIA meaningfully narrows down suites in general — Flask and requests
+above are the representative external numbers, spanning tight and loose
+architectures respectively.
