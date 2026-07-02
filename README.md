@@ -42,3 +42,26 @@ Resolver tests are fixture-driven: each directory under `tests/fixtures/`
 holds a tiny synthetic project plus an `expected_edges.json`, and the produced
 edge set must match exactly. When changing the resolver, add or update a
 fixture. See `CLAUDE.md` for the architecture invariants.
+
+## Validating test impact analysis
+
+`tracegraph affected` is validated empirically against coverage.py ground
+truth. The harness runs a target project's pytest suite under `coverage run`
+with one dynamic context per test (the pytest nodeid), so the coverage
+database records exactly which tests executed each source module. Those
+observed sets are compared with the static prediction and summarized as
+precision, recall, and reduction per module:
+
+```bash
+uv run python validation/validate_tia.py                  # this repo's suite
+uv run python validation/validate_tia.py /path/to/project --source pkg
+```
+
+A false negative — a test that demonstrably executed the changed module but
+was not selected — is the dangerous error, and fails the run (exit 1, tunable
+with `--min-recall`). Reported false positives are only an upper bound on
+over-selection: per-test contexts cannot attribute import-time execution, so a
+test that depends on a module purely through import side effects looks
+unaffected to coverage even when selecting it is correct. On TraceGraph's own
+suite the harness measures precision 1.00, recall 1.00, and mean reduction
+0.51.
